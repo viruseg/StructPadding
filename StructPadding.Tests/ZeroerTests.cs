@@ -1,5 +1,4 @@
-﻿using NUnit.Framework;
-using System.Runtime.InteropServices;
+﻿using System.Runtime.InteropServices;
 using System.Runtime.CompilerServices;
 
 namespace StructPadding.Tests;
@@ -11,7 +10,7 @@ public class ZeroerTests
     private struct SimplePadding
     {
         public byte A;
-        // 3 байта паддинга
+        // 3 bytes of padding
         public int B;
     }
 
@@ -20,15 +19,15 @@ public class ZeroerTests
     {
         public long A;
         public byte B;
-        // 7 байт паддинга
+        // 7 bytes of padding
     }
 
     [StructLayout(LayoutKind.Sequential)]
     private struct NestedPadding
     {
-        public SimplePadding Inner; // Внутри 3 байта паддинга
+        public SimplePadding Inner; // There are 3 padding bytes inside
         public byte C;
-        // Здесь еще 3 байта паддинга (выравнивание до 4 байт)
+        // There are 3 more padding bytes (alignment to 4 bytes)
     }
 
     [StructLayout(LayoutKind.Sequential)]
@@ -130,12 +129,12 @@ public class ZeroerTests
 
         using (Assert.EnterMultipleScope())
         {
-            // Внутренний паддинг
+            // Internal padding
             Assert.That(buffer[1], Is.EqualTo(0));
             Assert.That(buffer[2], Is.EqualTo(0));
             Assert.That(buffer[3], Is.EqualTo(0));
 
-            // Внешний паддинг (после C, смещение 8)
+            // External padding (after C, offset 8)
             Assert.That(buffer[8], Is.EqualTo(3)); // Self
             Assert.That(buffer[9], Is.EqualTo(0)); // Pad
             Assert.That(buffer[10], Is.EqualTo(0)); // Pad
@@ -172,40 +171,38 @@ public class ZeroerTests
     [Test]
     public void ZeroArray_SpanOfStructs_ClearsPaddingInAllElements()
     {
-        var count = 3;
-        var array = new SimplePadding[count];
+        const int COUNT = 5;
+        var array = new SimplePadding[COUNT];
         var arraySpan = array.AsSpan();
 
-        // Получаем байтовое представление для загрязнения памяти
         var bytes = MemoryMarshal.AsBytes(arraySpan);
         bytes.Fill(0xFF);
 
-        // Инициализируем значения
-        for (var i = 0; i < count; i++)
+        for (var i = 0; i < COUNT; i++)
         {
-            // Обращаемся через Span, чтобы гарантированно писать в ту же память
             ref var item = ref arraySpan[i];
             item.A = (byte) (i + 1);
             item.B = i + 1000;
         }
 
-        // Act
         Zeroer.ZeroArray(arraySpan);
 
-        // Assert
         var structSize = Unsafe.SizeOf<SimplePadding>();
 
-        for (var i = 0; i < count; i++)
+        for (var i = 0; i < COUNT; i++)
         {
             var baseOffset = i * structSize;
 
-            // Проверка данных
-            Assert.That(bytes[baseOffset], Is.EqualTo((byte) (i + 1)), $"Elem {i} Field A");
+            using (Assert.EnterMultipleScope())
+            {
+                // Data check
+                Assert.That(bytes[baseOffset], Is.EqualTo((byte)(i + 1)), $"Elem {i} Field A");
 
-            // Проверка паддинга
-            Assert.That(bytes[baseOffset + 1], Is.EqualTo(0), $"Elem {i} Pad 1");
-            Assert.That(bytes[baseOffset + 2], Is.EqualTo(0), $"Elem {i} Pad 2");
-            Assert.That(bytes[baseOffset + 3], Is.EqualTo(0), $"Elem {i} Pad 3");
+                // Padding check
+                Assert.That(bytes[baseOffset + 1], Is.EqualTo(0), $"Elem {i} Pad 1");
+                Assert.That(bytes[baseOffset + 2], Is.EqualTo(0), $"Elem {i} Pad 2");
+                Assert.That(bytes[baseOffset + 3], Is.EqualTo(0), $"Elem {i} Pad 3");
+            }
         }
     }
 
