@@ -4,6 +4,16 @@
 
 It ensures a deterministic memory state, which is critical for binary comparison (`memcmp`), hash calculation, and security sanitization.
 
+## Installation
+
+|Package|Download|
+|-|-|
+|StructPadding|[![NuGet](https://img.shields.io/nuget/v/StructPadding.svg)](https://www.nuget.org/packages/StructPadding) [![NuGet](https://img.shields.io/nuget/dt/StructPadding.svg)](https://www.nuget.org/packages/StructPadding)
+
+```bash
+dotnet add package StructPadding
+```
+
 ## Features
 - **Maximum Performance**: Uses System.Reflection.Emit (IL Generation) to create dynamic code specific to each structure.
 - **Zero Allocation**: No memory allocations during method calls (after cache warmup).
@@ -31,12 +41,6 @@ struct Example
 1. Hashing: If you calculate a hash (CRC32, MD5, SHA) from the raw memory of a structure, garbage in the padding will result in different hashes for logically identical objects.
 2. Comparison (memcmp): You cannot simply compare two memory blocks to determine if the structures are equal.
 3. Security: Padding may contain residual data from RAM (passwords, keys) which could leak during serialization or memory dumps.
-
-## Installation
-
-```bash
-dotnet add package StructPadding
-```
 
 ## Usage
 
