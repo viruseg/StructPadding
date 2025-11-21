@@ -73,6 +73,22 @@ public class ZeroerTests
         public fixed byte D[2];
     }
 
+    [StructLayout(LayoutKind.Explicit)]
+    private struct PacketHeader2
+    {
+        [FieldOffset(0)] public byte A;
+        [FieldOffset(1)] public byte B;
+        [FieldOffset(2)] public ushort C;
+        [FieldOffset(4)] public uint D;
+    }
+
+    [StructLayout(LayoutKind.Explicit)]
+    private struct PacketHeader3
+    {
+        [FieldOffset(0)] public int A;
+        [FieldOffset(0)] public float B;
+    }
+
 
     [Test]
     public unsafe void Zero_SimpleStruct_ClearsInternalPaddingOnly()
@@ -364,6 +380,62 @@ public class ZeroerTests
         var legacyPacketStructAsSpan = new ReadOnlySpan<byte>(&legacyPacketStruct, sizeof(LegacyPacket));
 
         Assert.That(legacyPacketStructAsSpan.SequenceEqual(MemoryMarshal.AsBytes(structSpan)), Is.True);
+    }
+
+    [Test]
+    public unsafe void Zero_PacketHeader2()
+    {
+        var size = Unsafe.SizeOf<PacketHeader2>();
+        var buffer = new byte[size];
+
+        Array.Fill(buffer, (byte) 0xFF);
+
+        var structSpan = MemoryMarshal.Cast<byte, PacketHeader2>(buffer.AsSpan());
+        ref var packetHeaderStructFromBuffer = ref structSpan[0];
+
+        packetHeaderStructFromBuffer.A = 0x11;
+        packetHeaderStructFromBuffer.B = 0x22;
+        packetHeaderStructFromBuffer.C = 0xFE;
+        packetHeaderStructFromBuffer.D = uint.MaxValue;
+
+        Zeroer.Zero(ref packetHeaderStructFromBuffer);
+
+        var packetHeaderStruct = new PacketHeader2
+        {
+            A = 0x11,
+            B = 0x22,
+            C = 0xFE,
+            D = uint.MaxValue
+        };
+
+        var packetHeaderStructAsSpan = new ReadOnlySpan<byte>(&packetHeaderStruct, sizeof(PacketHeader2));
+
+        Assert.That(packetHeaderStructAsSpan.SequenceEqual(MemoryMarshal.AsBytes(structSpan)), Is.True);
+    }
+
+    [Test]
+    public unsafe void Zero_PacketHeader3()
+    {
+        var size = Unsafe.SizeOf<PacketHeader3>();
+        var buffer = new byte[size];
+
+        Array.Fill(buffer, (byte) 0xFF);
+
+        var structSpan = MemoryMarshal.Cast<byte, PacketHeader3>(buffer.AsSpan());
+        ref var packetHeaderStructFromBuffer = ref structSpan[0];
+
+        packetHeaderStructFromBuffer.B = 123.456f;
+
+        Zeroer.Zero(ref packetHeaderStructFromBuffer);
+
+        var packetHeaderStruct = new PacketHeader3
+        {
+            B = 123.456f
+        };
+
+        var packetHeaderStructAsSpan = new ReadOnlySpan<byte>(&packetHeaderStruct, sizeof(PacketHeader3));
+
+        Assert.That(packetHeaderStructAsSpan.SequenceEqual(MemoryMarshal.AsBytes(structSpan)), Is.True);
     }
 
     private static byte[] GetBytes<T>(T value) where T : unmanaged
