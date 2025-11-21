@@ -148,6 +148,20 @@ public static class Zeroer
 
         if (fields.Count == 0) return regions;
 
+
+        var inlineArrayAttr = type.GetCustomAttribute<System.Runtime.CompilerServices.InlineArrayAttribute>();
+
+        if (inlineArrayAttr != null)
+        {
+            var field = fields[0];
+            var size = Marshal.SizeOf(field.Field.FieldType);
+
+            for (var i = 1; i < inlineArrayAttr.Length; i++)
+            {
+                fields.Add(field with { Offset = field.Offset + size * i });
+            }
+        }
+
         for (var i = 0; i < fields.Count - 1; i++)
         {
             var end = fields[i].Offset + fields[i].Size;
@@ -172,7 +186,9 @@ public static class Zeroer
 
         foreach (var f in fields)
         {
-            if (f.Field.FieldType is not { IsValueType: true, IsPrimitive: false, IsEnum: false }) continue;
+            if (f.Field.FieldType is not { IsValueType: true, IsPrimitive: false, IsEnum: false } ||
+                f.Field.FieldType.IsDefined(typeof(System.Runtime.CompilerServices.UnsafeValueTypeAttribute), inherit: false))
+                continue;
 
             var nested = AnalyzePadding(f.Field.FieldType);
 

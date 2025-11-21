@@ -14,6 +14,14 @@ public class ZeroerTests
         public int B;
     }
 
+    [StructLayout(LayoutKind.Sequential, Pack = 1)]
+    private struct SimplePaddingPack1
+    {
+        public byte A;
+        public int B;
+        public byte C;
+    }
+
     [StructLayout(LayoutKind.Sequential)]
     private struct TailPadding
     {
@@ -35,6 +43,34 @@ public class ZeroerTests
     {
         public int A;
         public int B;
+    }
+
+    private struct BufferStruct
+    {
+        public byte A;
+        public int B;
+        public byte C;
+    }
+
+    [InlineArray(2)]
+    private struct Buffer
+    {
+        public BufferStruct _element0;
+    }
+
+    private struct PacketHeader
+    {
+        public byte A;
+        public Buffer B;
+        public int C;
+    }
+
+    private unsafe struct LegacyPacket
+    {
+        public byte A;
+        public fixed ushort B[3];
+        public int C;
+        public fixed byte D[2];
     }
 
 
@@ -210,6 +246,124 @@ public class ZeroerTests
     public void ZeroArray_EmptySpan_DoesNotThrow()
     {
         Assert.DoesNotThrow(() => Zeroer.ZeroArray<SimplePadding>(Span<SimplePadding>.Empty));
+    }
+
+    [Test]
+    public unsafe void Zero_SimpleStruct_LayoutKindSequential_Pack1()
+    {
+        var size = Unsafe.SizeOf<SimplePaddingPack1>();
+        var buffer = new byte[size];
+
+        Array.Fill(buffer, (byte) 0xFF);
+
+        var structSpan = MemoryMarshal.Cast<byte, SimplePaddingPack1>(buffer.AsSpan());
+        ref var simplePaddingStructFromBuffer = ref structSpan[0];
+
+        simplePaddingStructFromBuffer.A = 0x11;
+        simplePaddingStructFromBuffer.B = 0x22222222;
+        simplePaddingStructFromBuffer.C = 0xFE;
+
+        Zeroer.Zero(ref simplePaddingStructFromBuffer);
+
+        var simplePaddingStruct = new SimplePaddingPack1
+        {
+            A = 0x11,
+            B = 0x22222222,
+            C = 0xFE
+        };
+
+        var simplePaddingStructAsSpan = new ReadOnlySpan<byte>(&simplePaddingStruct, sizeof(SimplePaddingPack1));
+
+        Assert.That(simplePaddingStructAsSpan.SequenceEqual(MemoryMarshal.AsBytes(structSpan)), Is.True);
+    }
+
+    [Test]
+    public unsafe void Zero_PacketHeader()
+    {
+        var size = Unsafe.SizeOf<PacketHeader>();
+        var buffer = new byte[size];
+
+        Array.Fill(buffer, (byte) 0xFF);
+
+        var structSpan = MemoryMarshal.Cast<byte, PacketHeader>(buffer.AsSpan());
+        ref var packetHeaderStructFromBuffer = ref structSpan[0];
+
+        packetHeaderStructFromBuffer.A = 0x11;
+        packetHeaderStructFromBuffer.B[0] = new BufferStruct
+        {
+            A = 0x81,
+            B = 0x22222222,
+            C = 0x81
+        };
+        packetHeaderStructFromBuffer.B[1] = new BufferStruct
+        {
+            A = 0x81,
+            B = 0x22222222,
+            C = 0x81
+        };
+        packetHeaderStructFromBuffer.C = 0xFE;
+
+        Zeroer.Zero(ref packetHeaderStructFromBuffer);
+
+        var packetHeaderStruct = new PacketHeader
+        {
+            A = 0x11,
+            B = new Buffer(),
+            C = 0xFE
+        };
+        packetHeaderStruct.B[0] = new BufferStruct
+        {
+            A = 0x81,
+            B = 0x22222222,
+            C = 0x81
+        };
+        packetHeaderStruct.B[1] = new BufferStruct
+        {
+            A = 0x81,
+            B = 0x22222222,
+            C = 0x81
+        };
+
+        var packetHeaderStructAsSpan = new ReadOnlySpan<byte>(&packetHeaderStruct, sizeof(PacketHeader));
+
+        Assert.That(packetHeaderStructAsSpan.SequenceEqual(MemoryMarshal.AsBytes(structSpan)), Is.True);
+    }
+
+    [Test]
+    public unsafe void Zero_LegacyPacket()
+    {
+        var size = Unsafe.SizeOf<LegacyPacket>();
+        var buffer = new byte[size];
+
+        Array.Fill(buffer, (byte) 0xFF);
+
+        var structSpan = MemoryMarshal.Cast<byte, LegacyPacket>(buffer.AsSpan());
+        ref var legacyPacketStructFromBuffer = ref structSpan[0];
+
+        legacyPacketStructFromBuffer.A = 0x11;
+        legacyPacketStructFromBuffer.B[0] = ushort.MaxValue;
+        legacyPacketStructFromBuffer.B[1] = ushort.MaxValue;
+        legacyPacketStructFromBuffer.B[2] = ushort.MaxValue;
+        legacyPacketStructFromBuffer.C = 0xFE;
+        legacyPacketStructFromBuffer.D[0] = 0x11;
+        legacyPacketStructFromBuffer.D[1] = 0x11;
+
+        Zeroer.Zero(ref legacyPacketStructFromBuffer);
+
+        var legacyPacketStruct = new LegacyPacket
+        {
+            A = 0x11,
+            C = 0xFE
+        };
+        legacyPacketStruct.B[0] = ushort.MaxValue;
+        legacyPacketStruct.B[1] = ushort.MaxValue;
+        legacyPacketStruct.B[2] = ushort.MaxValue;
+        legacyPacketStruct.D[0] = 0x11;
+        legacyPacketStruct.D[1] = 0x11;
+
+        var legacyPacketStructAsSpan = new ReadOnlySpan<byte>(&legacyPacketStruct, sizeof(LegacyPacket));
+
+        Assert.That(legacyPacketStructAsSpan.SequenceEqual(MemoryMarshal.AsBytes(structSpan)), Is.True);
     }
 
     private static byte[] GetBytes<T>(T value) where T : unmanaged
