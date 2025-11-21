@@ -8,7 +8,6 @@ namespace StructPadding;
 
 /// <summary>
 /// Provides high-performance methods for zeroing memory padding in unmanaged structures.
-/// Useful for ensuring deterministic memory content for hashing, binary comparison, or security sanitization.
 /// </summary>
 public static class Zeroer
 {
@@ -18,7 +17,6 @@ public static class Zeroer
 
     /// <summary>
     /// Resets all padding bytes in the specified unmanaged structure reference to zero.
-    /// This method modifies the memory in-place.
     /// </summary>
     /// <typeparam name="T">The type of the unmanaged structure. Must not be a primitive type.</typeparam>
     /// <param name="value">A reference to the structure instance to be sanitized.</param>
@@ -36,7 +34,6 @@ public static class Zeroer
 
     /// <summary>
     /// Resets all padding bytes in a span of unmanaged structures to zero.
-    /// This is significantly faster than iterating and zeroing elements individually.
     /// </summary>
     /// <typeparam name="T">The type of unmanaged structures in the span.</typeparam>
     /// <param name="array">The span of structures to process.</param>
